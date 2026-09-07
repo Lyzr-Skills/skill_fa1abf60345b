@@ -1,26 +1,46 @@
-# Sales Coach & Pipeline Strategist
+# SKILL: Get Current Period (Current Quarter) & Forecast-vs-Quota Gap Analysis
 
-## PURPOSE
-To act as an expert Sales Coach for sellers and managers. 
-The agent analyzes quota gaps, identifies deal risks, prioritizes non-forecasted deals, and uncovers expansion opportunities through whitespace and engagement analysis.
+## Description
+Two chained workflows for the Anaplan **Template Sales Forecasting** model:
 
-## TRIGGER PHRASES
-Use this skill when the user requests:
-- "pipeline summary for [rep name]"
-- "show me [rep name]'s pipeline summary"
-- "what's in [rep name]'s pipeline"
-- "pipeline report for [rep]"
-- "how is [rep] doing"
-- "give me a status of [rep name]'s pipeline"
-- "[rep name] pipeline summary"
+1. **Part A — Get Current Period**: Retrieves the current planning period, defined by the user as the value of the line item **"Current Quarter"** in the module **"SYS: Time Settings"**.
+2. **Part B — Forecast vs Quota Gap Analysis (downstream)**: Using the current period from Part A, compares the **Forecast Call** amount against the **Quota** target from the module **"INP: Input T4 Forecast"**, optionally adjusts the forecast based on the historical forecast trend (forecast accuracy in prior quarters), and computes the **gap to quota** — the amount sellers or sales managers need to bridge.
 
-## INPUTS REQUIRED
-- **Sales Rep Name** (e.g., "Tom Frazier") - REQUIRED
-- Optional: Time period filter (defaults to current/active opportunities)
+Use this skill whenever the user asks for the "current period" / "current quarter", or asks about the **gap between forecast and quota**, forecast attainment, quota coverage, or "how much do we need to bridge".
 
-## WORKFLOW
+## Model Context
+| Property | Value |
+|---|---|
+| Workspace ID | `dcfa3da2a2544dc9b3ab6fce4df5bbac` |
+| Model ID | `4AA3ED8D87AA49FBAD787AE3A4174EA3` |
+| Model Name | Template Sales Forecasting |
 
-### Step 0: Check and Set Model Context ⚠️ CRITICAL FIRST STEP
+### Anaplan objects used
+| Purpose | Module | Line Item(s) |
+|---|---|---|
+| Current period | SYS: Time Settings | Current Quarter |
+| Quota target | INP: Input T4 Forecast | Quota |
+| Forecast amount | INP: Input T4 Forecast | Forecast Call |
+| Historical trend (optional) | INP: Input T4 Forecast | Actuals (vs Forecast Call in prior quarters) |
+
+### "INP: Input T4 Forecast" module dimensionality
+| Dimension | Kind | Notes |
+|---|---|---|
+| Time | Time (Month scale) | Quarter labels (e.g. `Q3 FY26`) are valid non-leaf slices |
+| Sub Region T4 | List | Leaf level = individual sub-regions (e.g. "Sub Region 1 Northeast") |
+| T4 | List | Leaf member observed: `T4` |
+
+No Versions dimension → never ask the user for a version on this module.
+
+## Prerequisites
+- MCP session with access to the workspace/model above.
+- Tools required: `set_model_context`, `get_model_status`, `sql_schema`, `sql_query` (optionally `catalog_modules` / `catalog_line_items` to re-verify object names).
+
+---
+
+## Part A — Get Current Period
+
+### Step 1: Check and Set Model Context ⚠️ CRITICAL FIRST STEP
 
 **ALWAYS start here before any other operations.**
 
@@ -84,556 +104,129 @@ If not, ask for the correct workspace and model IDs and set context accordingly.
 
 ---
 
-### Step 1: Quota Gap Analysis
-
-Calculate the bridge required to hit target.
-
-1. Query: Execute sql_query on module INP: Input T4 Forecast.
-
-2. Fields: Quota, Forecast Call
-
-3. Logic:
-
-- Gap = Quota - Forecast Call
-- Refinement: Compare Forecast Call against historical trends (if available) to adjust the "Realizable Forecast."
-
----
-
-### Step 2: Risk Evaluation (The "Deep Dive")
-
-Identify why deals might slip:
-
-1. Identify Forecasted Deals: Query CAL: Opportunity Deal Sheet where In Forecast? == true.
-2. Analyze MEDDPICC (Module: DAT: Opportunity):
-3. Check completeness of: Metric, Economic Buyer, Decision Criteria, Decision Process, Procurement Process, Identify Pain, Compelling Event, Champion.
-5. Evaluate depth of: Why do anything?, Why us?, Why now?.
-Analyze Close Plan (Module: INP: Opportunity Close Plan):
-Verify if action steps are specific and reasonable.
-Analyze Estimation Risks (Module: CAL: Opportunity Deal Sheet):
-Compare Win Rate Estimation and Close Date Estimation against historical averages for similar deal sizes.
-
----
-
-### Step 3: Gap Bridging & Prioritization
-
-Find the "hidden" deals to fill the Step 1 gap
-
-1. Filter: Identify deals in CAL: Opportunity Deal Sheet where In Forecast? == false.
-2. Rank: Prioritize using Quota Contribution Calc (from "Opportunities" dashboard) and Win Score (if available).
-3. Output: A list of top priority deals to focus on to bridge the Step 1 Gap.
-
----
-
-### Step 4: Expansion & Whitespace Discovery
-
-Identify cross-sell/upsell opportunities.
-
-1. Renewal Trigger: Check Next Renewal Date in CAL: Opportunity Deal Sheet.
-2. Whitespace Analysis (Module: ACC: Account Product View):
-  - Identify White space? and Key Focus Area fields.
-3. Engagement Analysis:
-  - Cross-reference account interest using ACC: Account by Engagement Channels and ACC: Engagement by Job Level.
----
-
-## OUTPUT FORMAT
-
-# [Rep Name]'s Current Pipeline Status
-
-## 📊 Executive Summary: The Gap
-
-**Quota: $[Amount] **
-
-**Current Forecast: $X,XXX,XXX**
-
-**Quota: $X,XXX,XXX**
-
-## ⚠️ Risk Alert (Forecasted Deals)
-- **[Deal Name]:**  [Risk Level: High/Med/Low]
-  - ***Reason:*** (e.g., "MEDDPICC incomplete: No Economic Buyer identified" or "3 Whys lack urgency")
-  - ***Recommendation:*** [Specific coaching action]
-
-
-## 🚀 Priority Bridge Opportunities (Non-Forecasted)
-
-1. **[Deal Name]:**  $[Amount] | [Priority Score]
-  - ***Why:*** [Reason based on Quota Contribution]
-
-## 🔍 Expansion Roadmap
-
-- **Account Name:** [Expansion Potential: High/Med/Low]
-  - ***Whitespace:*** [Products/Services]
-  - ***Engagement:*** [Level of engagement by job level]
-
----
-
-## ERROR HANDLING
-
-### Error: Model Context Not Set or Invalid
-
-**Symptom:** `get_model_context()` returns `bound: false` or error
-
-**Resolution:**
-1. Ask user for Workspace ID and Model ID:
-   ```
-   "I need to connect to your Anaplan model. Please provide:
-   - Workspace ID
-   - Model ID
-   
-   (I can help you find these if you don't have them handy)"
-   ```
-
-2. If user doesn't know IDs:
-   ```bash
-   # List workspaces
-   catalog_workspaces()
-   
-   # Ask user which workspace, then list models
-   catalog_workspaces_and_models(workspace_id="selected_id")
-   ```
-
-3. Set context once IDs are obtained:
-   ```bash
-   set_model_context(
-     workspace_id: "user_provided_id",
-     model_id: "user_provided_id"
-   )
-   ```
-
-### Error: Sales Rep Name Not Found
-
-**Symptom:** Query returns 0 results
-
-**Resolution:**
-1. Query for similar names (fuzzy match):
-   ```sql
-   SELECT DISTINCT sales_rep
-   FROM pipeline_table
-   WHERE sales_rep LIKE :partial_name
-     AND sales_rep_is_leaf = true
-   ```
-   Parameters: `{"partial_name": "%Frazier%"}`
-
-2. Present alternatives to user:
-   ```
-   "I couldn't find '[Rep Name]'. Did you mean:
-   - Tom Frazier
-   - Thomas Frazier Jr.
-   - T. Frazier
-   
-   Or would you like me to list all available sales reps?"
-   ```
-
-3. If needed, list all distinct reps:
-   ```sql
-   SELECT DISTINCT sales_rep
-   FROM pipeline_table
-   WHERE sales_rep_is_leaf = true
-   ORDER BY sales_rep
-   ```
-
-### Error: No Active Pipeline Found
-
-**Symptom:** Query returns data but all opportunities are closed/won/lost
-
-**Resolution:**
-1. Confirm status values:
-   ```sql
-   SELECT DISTINCT status
-   FROM pipeline_table
-   WHERE sales_rep = :rep_name
-     AND sales_rep_is_leaf = true
-   ```
-
-2. Report findings:
-   ```
-   "[Rep Name] has no active opportunities in the pipeline.
-   
-   However, they have XX closed opportunities:
-   - Won: XX deals ($XXX,XXX)
-   - Lost: XX deals ($XXX,XXX)
-   
-   Would you like to see historical performance instead?"
-   ```
-
-3. Offer alternative reports:
-   - Historical performance summary
-   - Recently closed deals
-   - Quarterly trends
-
-### Error: Pipeline Module Not Found
-
-**Symptom:** `catalog_modules` returns no results for "pipeline"
-
-**Resolution:**
-1. Search with broader terms:
-   ```bash
-   catalog_modules(name_contains: "sales")
-   catalog_modules(name_contains: "opportunity")
-   catalog_modules(name_contains: "forecast")
-   catalog_modules(include_dimensions: true, limit: 100)  # List all
-   ```
-
-2. Ask user which module contains pipeline data:
-   ```
-   "I found these modules that might contain pipeline data:
-   - Module A
-   - Module B
-   - Module C
-   
-   Which one contains the sales pipeline/opportunities?"
-   ```
-
-3. Update `included_objects` with the correct module name
-
-### Error: Required Line Items Missing
-
-**Symptom:** `catalog_line_items` doesn't return expected fields
-
-**Resolution:**
-1. Show available line items to user:
-   ```
-   "I found these line items in [Module]:
-   - [Line Item 1]
-   - [Line Item 2]
-   - ...
-   
-   Which fields represent:
-   - Opportunity amount/value?
-   - Sales stage?
-   - Sales rep/owner?
-   - Status (active/won/lost)?
-   ```
-
-2. Map user responses to query fields:
-   ```bash
-   field_mappings = {
-     "amount": "Deal Value",  # User-specified name
-     "stage": "Sales Stage",
-     "rep": "Owner",
-     "status": "Opp Status"
-   }
-   ```
-
-3. Rebuild queries with correct field names
-
-### Error: Query Returns Too Many Rows
-
-**Symptom:** Query exceeds reasonable limits or times out
-
-**Resolution:**
-1. Add pagination:
-   ```sql
-   SELECT ... LIMIT 100 OFFSET 0
-   ```
-
-2. Add stricter filters:
-   ```sql
-   WHERE sales_rep = :rep_name
-     AND status = 'Active'
-     AND close_date >= CURRENT_DATE  -- Only future/current opps
-   ```
-
-3. Aggregate instead of detail:
-   ```sql
-   -- Instead of listing all opps, summarize
-   SELECT stage, COUNT(*), SUM(amount)
-   GROUP BY stage
-   ```
-
-### Error: Dimension Constraint Missing
-
-**Symptom:** Error about missing WHERE clause for dimension
-
-**Resolution:**
-1. Review schema to identify all dimension columns:
-   ```bash
-   sql_schema(included_objects: {...})
-   ```
-
-2. Add `_is_leaf = true` for every list dimension:
-   ```sql
-   WHERE sales_rep_is_leaf = true
-     AND product_is_leaf = true
-     AND region_is_leaf = true
-     AND customer_is_leaf = true
-   ```
-
-3. Do NOT filter on `time` or `versions` unless they appear in schema's `dimension_column_names`
-
----
-
-## OPTIMIZATION STRATEGIES
-
-### 1. Minimize Tool Calls
-
-**Batch Independent Operations:**
-```bash
-# ✅ GOOD: Call both in same block if no dependencies
-catalog_modules(name_contains: "pipeline")
-catalog_modules(name_contains: "opportunity")
-
-# ❌ BAD: Sequential calls when batching is possible
-catalog_modules(name_contains: "pipeline")
-# wait for response
-catalog_modules(name_contains: "opportunity")
-```
-
-**Cache Discovery Results:**
-- After first `catalog_modules`, store module IDs in memory
-- Reuse module_id and line_item names across queries
-- Don't re-discover on every query
-
-### 2. SQL Query Efficiency
-
-**Use Parameterized Queries:**
-```sql
--- ✅ GOOD
-WHERE sales_rep = :rep_name
--- ❌ BAD
-WHERE sales_rep = 'Tom Frazier'
-```
-
-**Always Constrain All Dimensions:**
-```sql
--- ✅ GOOD
-WHERE sales_rep_is_leaf = true
-  AND product_is_leaf = true
-  AND region_is_leaf = true
--- ❌ BAD (missing dimension constraints)
-WHERE sales_rep = :rep_name
-```
-
-**Select Only Needed Columns:**
-```sql
--- ✅ GOOD
-SELECT opportunity_name, amount, stage
--- ❌ BAD
-SELECT *
-```
-
-**Filter Early:**
-```sql
--- ✅ GOOD: Filter in WHERE clause
-WHERE status = 'Active' AND amount > 10000
--- ❌ BAD: Get all data then filter in code
-```
-
-### 3. Reuse included_objects
-
-**The SAME `included_objects` map must be used for:**
-- `sql_schema()` - to build schema
-- `sql_query()` - to execute queries
-
-```bash
-# Define once
-pipeline_objects = {
-  "Pipeline Module": ["Amount", "Stage", "Status", "Close Date"]
+### Step 2 — Verify model readiness (handle cold-start)
+The model may be closed/loading (states seen in practice: `allocating`, `loading`). If any model-scoped call returns `CORE_TIMEOUT` or the model state is not `ready`:
+1. Call `get_model_status`.
+2. If `ready` is `false`, wait per the `retry.after_seconds` guidance (typically 5–30 seconds) and poll `get_model_status` again.
+3. Proceed only when `state` = `ready`.
+
+### Step 3 — Fetch the schema for the target line item
+Call `sql_schema` with:
+```json
+{
+  "included_objects": { "SYS: Time Settings": ["Current Quarter"] }
 }
+```
+Expected schema result:
+- Table name: `template sales forecasting.sys: time settings`
+- Column: `current quarter` (VARCHAR)
+- No Time or Versions dimension columns → no WHERE clause constraints needed.
 
-# Use for both
-sql_schema(included_objects: pipeline_objects)
-sql_query(included_objects: pipeline_objects, query: "...")
+### Step 4 — Query the value
+Call `sql_query` with the SAME `included_objects` map:
+```json
+{
+  "included_objects": { "SYS: Time Settings": ["Current Quarter"] },
+  "query": "SELECT \"current quarter\" FROM \"template sales forecasting.sys: time settings\""
+}
 ```
 
-### 4. Progressive Detail
-
-**Start with aggregates, then drill down:**
-1. First: Summary query (count, sum by stage)
-2. Then: Top N opportunities
-3. Finally: Full detail list if needed
-
-**Don't fetch all data upfront:**
-```bash
-# ✅ GOOD: Get summary first
-sql_query(query: "SELECT stage, COUNT(*), SUM(amount) GROUP BY stage")
-# Then get details only if needed
-sql_query(query: "SELECT * FROM ... WHERE stage = :stage")
-
-# ❌ BAD: Fetch everything
-sql_query(query: "SELECT * FROM pipeline_table")  # Could be thousands of rows
-```
-
-### 5. Handle Model Variations
-
-**Flexible field mapping:**
-```bash
-# Try common variations
-amount_fields = ["Amount", "Value", "Deal Size", "Opportunity Value"]
-for field in amount_fields:
-  if field in line_items:
-    amount_field = field
-    break
-```
-
-**Graceful fallback:**
-```bash
-# If exact module not found, ask user
-if "Pipeline" not in modules:
-  if "Opportunity" in modules:
-    use_module = "Opportunity"
-  else:
-    ask_user_which_module()
-```
+### Step 5 — Present the result
+Report the returned value as the current period (e.g. **Q3 FY26**) and carry it into Part B as `:qtr`.
 
 ---
 
-## EXAMPLE TOOL CALL SEQUENCE
+## Part B — Forecast vs Quota Gap Analysis (downstream)
 
-Complete workflow for "Give me Tom Frazier's pipeline status":
+**Business logic**: The gap between forecast and quota is the amount the sellers or sales managers need to bridge for the current quarter.
 
-```bash
-# Step 0: Check/Set Model Context
-get_model_context()
-# If not bound, ask user for IDs and:
-set_model_context(workspace_id="...", model_id="...")
-
-# Step 1: Discover modules
-catalog_modules(name_contains="pipeline", include_dimensions=true)
-
-# Step 2: Get line items
-catalog_line_items(module_id="discovered_id", limit=100)
-
-# Step 3: Build schema
-sql_schema(
-  included_objects={
-    "Pipeline Module": ["Amount", "Stage", "Forecast Category", "Status", "Close Date"]
-  }
-)
-
-# Step 4: Query data (use same included_objects!)
-# Query A: Summary by stage
-sql_query(
-  included_objects={
-    "Pipeline Module": ["Amount", "Stage", "Forecast Category", "Status"]
-  },
-  query="SELECT stage, forecast_category, COUNT(*), SUM(amount) FROM ... WHERE sales_rep = :rep AND ...",
-  parameters={"rep": "Tom Frazier"}
-)
-
-# Query B: Detailed opportunities
-sql_query(
-  included_objects={
-    "Pipeline Module": ["Opportunity Name", "Account", "Amount", "Stage", "Close Date"]
-  },
-  query="SELECT opportunity_name, account, amount, stage, close_date FROM ... WHERE ...",
-  parameters={"rep": "Tom Frazier"}
-)
-
-# Query C: Performance metrics
-sql_query(
-  included_objects={
-    "Pipeline Module": ["Amount", "Status"]
-  },
-  query="SELECT status, COUNT(*), SUM(amount), AVG(amount) FROM ... WHERE ...",
-  parameters={"rep": "Tom Frazier"}
-)
-
-# Step 5-6: Calculate metrics (in code)
-
-# Step 7: Generate report
-create_artifact(
-  name="Tom Frazier Pipeline Status Report",
-  format_type="markdown",
-  description="...",
-  data="[formatted report markdown]"
-)
+```
+Gap to Quota            = Quota − Forecast Call
+Trend Factor (optional) = avg( Actuals / Forecast Call ) over recent closed quarters
+Adjusted Forecast       = Forecast Call × Trend Factor
+Adjusted Gap            = Quota − Adjusted Forecast
+Forecast Attainment %   = Forecast Call / Quota
 ```
 
-**Total tool calls: ~7-8**
-- 1 get_model_context
-- 0-1 set_model_context (if needed)
-- 1-2 catalog_modules
-- 1 catalog_line_items
-- 1 sql_schema
-- 3 sql_query
-- 1 create_artifact
+### Step 6 — Fetch the schema for the forecast module
+Call `sql_schema` with:
+```json
+{
+  "included_objects": { "INP: Input T4 Forecast": ["Quota", "Forecast Call"] }
+}
+```
+Expected table: `template sales forecasting.inp: input t4 forecast` with:
+- Dimension columns: `time`, `sub region t4`, `t4` (each with a matching `*_is_leaf` BOOLEAN flag)
+- Measure columns: `quota` (DOUBLE), `forecast call` (DOUBLE)
+
+Add `"Actuals"` to the line-item list when computing the historical trend (Step 8).
+
+### Step 7 — Query total Quota and Forecast Call for the current quarter
+Call `sql_query` (same `included_objects` as Step 6), slicing time to the current quarter from Part A and requesting leaf on both list dimensions:
+```json
+{
+  "included_objects": { "INP: Input T4 Forecast": ["Quota", "Forecast Call"] },
+  "query": "SELECT SUM(\"quota\") AS total_quota, SUM(\"forecast call\") AS total_forecast FROM \"template sales forecasting.inp: input t4 forecast\" WHERE \"time\" = :qtr AND \"sub region t4_is_leaf\" = TRUE AND \"t4_is_leaf\" = TRUE",
+  "parameters": { "qtr": "Q3 FY26" }
+}
+```
+
+### Step 8 — (Optional) Compute the historical forecast trend factor
+For each of the 1–3 most recent **closed** quarters (e.g. `Q2 FY26`, `Q1 FY26`), run **one query per quarter** (the SQL engine rejects `time IN (...)` — see Gotchas):
+```json
+{
+  "included_objects": { "INP: Input T4 Forecast": ["Quota", "Forecast Call", "Actuals"] },
+  "query": "SELECT SUM(\"forecast call\") AS total_forecast, SUM(\"actuals\") AS total_actuals FROM \"template sales forecasting.inp: input t4 forecast\" WHERE \"time\" = :qtr AND \"sub region t4_is_leaf\" = TRUE AND \"t4_is_leaf\" = TRUE",
+  "parameters": { "qtr": "Q2 FY26" }
+}
+```
+Then:
+```
+Trend Factor = average over prior quarters of (total_actuals / total_forecast)
+Adjusted Forecast = current-quarter Forecast Call × Trend Factor
+```
+If prior-quarter data is missing or forecast is zero, skip adjustment and use the raw Forecast Call (Trend Factor = 1.00). Note: in this model, closed quarters show Forecast Call = Actuals (factor 1.00), so the adjustment is currently neutral — still compute it, as this can change as data evolves.
+
+### Step 9 — Compute and present the gap
+```
+Gap to Quota  = total_quota − total_forecast            (raw)
+Adjusted Gap  = total_quota − adjusted_forecast          (trend-adjusted)
+Attainment %  = total_forecast / total_quota × 100
+```
+Present as a summary table, e.g.:
+
+| Metric | Value |
+|---|---|
+| Current Quarter | Q3 FY26 |
+| Quota | 5,658,070 |
+| Forecast Call | 319,425 |
+| Trend Factor | 1.00 |
+| Adjusted Forecast | 319,425 |
+| **Gap to Quota (to bridge)** | **5,338,645** |
+| Forecast Attainment % | 5.6% |
+
+State clearly: "The gap between forecast and quota is **<gap>** — this is the amount sellers/sales managers need to bridge in <current quarter>."
+
+### Step 10 — (Optional) Per-sub-region breakdown for prioritization
+To show sellers/managers where the gap is concentrated:
+```json
+{
+  "included_objects": { "INP: Input T4 Forecast": ["Quota", "Forecast Call"] },
+  "query": "SELECT \"sub region t4\", SUM(\"quota\") AS quota, SUM(\"forecast call\") AS forecast, SUM(\"quota\") - SUM(\"forecast call\") AS gap FROM \"template sales forecasting.inp: input t4 forecast\" WHERE \"time\" = :qtr AND \"sub region t4_is_leaf\" = TRUE AND \"t4_is_leaf\" = TRUE GROUP BY \"sub region t4\" ORDER BY gap DESC",
+  "parameters": { "qtr": "Q3 FY26" }
+}
+```
+Rank sub-regions by gap descending to highlight where bridging effort is most needed.
 
 ---
 
-## DEPENDENCIES
-
-### Required Tools:
-- `get_model_context` - Check if model is bound
-- `set_model_context` - Bind workspace and model
-- `catalog_workspaces` - List available workspaces
-- `catalog_workspaces_and_models` - List available models
-- `catalog_modules` - Discover pipeline modules
-- `catalog_line_items` - Get available fields
-- `sql_schema` - Build query schema
-- `sql_query` - Execute queries
-- `create_artifact` - Save report
-
-### Optional Tools:
-- `explain_cell` - For understanding specific calculations
-- `get_model_status` - Check if model is ready
-- `catalog_lists` - Get dimension members (for validation)
-
-### Output Tools:
-- `create_artifact` - Primary output (markdown report)
-- Alternative: Direct response for quick summaries
-
----
-
-## NOTES
-
-### Model Context Best Practice
-- **ALWAYS check `get_model_context()` first** before any model operations
-- **Never assume or hardcode workspace/model IDs** - always ask the user
-- If context is not set, **help the user discover their workspace and model**
-- Even if context is set, **verify it's the correct model** with the user
-
-### SQL Constraints
-- **MUST constrain every dimension column** from the schema
-- Use `dimension_name_is_leaf = true` for all list dimensions
-- Do NOT filter on `time` or `versions` unless they appear in `dimension_column_names` in the schema
-- If a dimension appears in schema but you don't want to filter it, use: `dimension_is_leaf = true` without an equality filter
-
-### included_objects Requirement
-- **REQUIRED** on both `sql_schema()` and `sql_query()`
-- **MUST be identical** between schema and query calls
-- Format: `{"Module Display Name": ["Line Item 1", "Line Item 2"]}`
-- Use empty list `[]` to include all line items: `{"Pipeline": []}`
-
-### Parameterized Queries
-- **Always use `:param_name` placeholders**
-- Pass matching `parameters` dict: `{"param_name": "value"}`
-- Never concatenate user input into SQL strings
-- Parameter values can be string, number, or boolean
-
-### Field Name Variations
-Common field name variations across models:
-- **Amount:** Amount, Value, Deal Size, Opportunity Value, Deal Value
-- **Stage:** Stage, Sales Stage, Opportunity Stage, Phase
-- **Rep:** Sales Rep, Owner, Rep Name, Account Executive
-- **Status:** Status, Opportunity Status, State, Stage Status
-- **Category:** Forecast Category, Commit Category, Confidence Level
-
-Adapt queries to actual field names discovered in the model.
-
-### Performance Tips
-- Start with aggregates before details
-- Use LIMIT on detail queries
-- Filter on indexed dimensions early (rep, status)
-- Avoid SELECT * - specify needed columns
-- Batch independent catalog calls
-
-### Report Quality
-- Use clear section headers with emojis
-- Include both summary metrics and details
-- Provide actionable insights, not just data
-- Format currency consistently ($X,XXX,XXX)
-- Show percentages with context
-- Highlight important items (top opps, risks)
-- End with recommendations
-
----
-
-## VERSION HISTORY
-
-- v1.0: Initial skill creation
-- v1.1: Added model context verification (Step 0)
-- v1.2: Enhanced error handling for context management
-
----
-
-*This skill provides a complete, production-ready workflow for generating sales pipeline status reports from Anaplan models.*
+## Notes & Gotchas
+- The module name in the user's preference may contain a trailing space ("SYS: Time Settings "). Use the canonical name **"SYS: Time Settings"** when calling tools.
+- "Current Quarter" is a text/VARCHAR value (e.g., "Q3 FY26"), not a native Time period — read it via SQL, not via time metadata.
+- `included_objects` is REQUIRED and must be identical on both `sql_schema` and `sql_query`.
+- **SQL slicing rule**: every dimension column must be either sliced with `=` or constrained to leaf via `<dim>_is_leaf = TRUE`. Violations return: *"Only queries that slice or request leaf for every dimension are permitted"*.
+  - `time IN ('Q1 FY26','Q2 FY26')` is NOT accepted as a slice — run one query per quarter instead.
+  - `SELECT DISTINCT` on dimension columns without leaf constraints also fails.
+- The module's time scale is Month, but quarter labels (e.g. `Q3 FY26`) work as time slices and return quarter-aggregated values.
+- Related line items available in "INP: Input T4 Forecast" if deeper analysis is requested (verify before use): `Forecast Attainment %`, `Forecast Call To Go`, `LW Forecast Call`, `1 Week Change`, `Won`, `Commit`, `Upside`, `Pipeline`, `Total Pipeline`, `Anaplan Prediction`, `Actuals`.
+- Do not invent or extrapolate Anaplan object names; use exactly the module and line item names above.
