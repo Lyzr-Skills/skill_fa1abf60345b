@@ -12,8 +12,8 @@ Use this skill whenever the user asks for the "current period" / "current quarte
 | Property | Value |
 |---|---|
 | Workspace ID | `dcfa3da2a2544dc9b3ab6fce4df5bbac` |
-| Model ID | `4AA3ED8D87AA49FBAD787AE3A4174EA3` |
-| Model Name | Template Sales Forecasting |
+| Model ID | `4A08859E10F749D2A1C11725890A0908` |
+| Model Name | Template Sales Forecasting - Last Version |
 
 ### Anaplan objects used
 | Purpose | Module | Line Item(s) |
