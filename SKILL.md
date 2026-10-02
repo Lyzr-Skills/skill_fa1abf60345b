@@ -40,69 +40,15 @@ No Versions dimension → never ask the user for a version on this module.
 
 ## Part A — Get Current Period
 
-### Step 1: Check and Set Model Context ⚠️ CRITICAL FIRST STEP
-
-**ALWAYS start here before any other operations.**
-
-Check get_model_context(). If not bound, follow the discovery protocol to connect to the Anaplan model.
-
-```bash
-get_model_context()
+### Step 1 — Bind the model context
+Call `set_model_context`:
+```json
+{
+  "workspace_id": "dcfa3da2a2544dc9b3ab6fce4df5bbac",
+  "model_id": "4A08859E10F749D2A1C11725890A0908",
+  "model_name": "Template Sales Forecasting - Last Version"
+}
 ```
-
-**If the response shows `bound: false` or context is not set:**
-
-1. **Ask the user for Workspace ID and Model ID:**
-   ```
-   "To generate this pipeline report, I need to connect to your Anaplan model.
-   
-   Please provide:
-   - Workspace ID
-   - Model ID
-   
-   If you don't know these IDs, I can help you find them. Would you like me to:
-   1. List your available workspaces
-   2. Show models in a specific workspace
-   ```
-
-2. **If user doesn't know their IDs, help them discover:**
-   
-   **a) List available workspaces:**
-   ```bash
-   catalog_workspaces()
-   ```
-   Show the user their workspaces with IDs and ask which one to use.
-   
-   **b) Once they select a workspace, list its models:**
-   ```bash
-   catalog_workspaces_and_models(
-     workspace_id: "user_selected_workspace_id"
-   )
-   ```
-   Show the user the models and ask which one contains their pipeline data.
-
-3. **Once you have both IDs, set the context:**
-   ```bash
-   set_model_context(
-     workspace_id: "user_provided_workspace_id",
-     model_id: "user_provided_model_id",
-     workspace_name: "optional_workspace_name",
-     model_name: "optional_model_name"
-   )
-   ```
-
-**If context IS already set (`bound: true`):**
-
-Verify it's the correct model by showing the user:
-```
-"I'm connected to [model_name] in [workspace_name]. 
-Is this the correct model for the pipeline report?"
-```
-
-If the user confirms, proceed to Step 1.
-If not, ask for the correct workspace and model IDs and set context accordingly.
-
----
 
 ### Step 2 — Verify model readiness (handle cold-start)
 The model may be closed/loading (states seen in practice: `allocating`, `loading`). If any model-scoped call returns `CORE_TIMEOUT` or the model state is not `ready`:
@@ -230,3 +176,14 @@ Rank sub-regions by gap descending to highlight where bridging effort is most ne
 - The module's time scale is Month, but quarter labels (e.g. `Q3 FY26`) work as time slices and return quarter-aggregated values.
 - Related line items available in "INP: Input T4 Forecast" if deeper analysis is requested (verify before use): `Forecast Attainment %`, `Forecast Call To Go`, `LW Forecast Call`, `1 Week Change`, `Won`, `Commit`, `Upside`, `Pipeline`, `Total Pipeline`, `Anaplan Prediction`, `Actuals`.
 - Do not invent or extrapolate Anaplan object names; use exactly the module and line item names above.
+
+## Last Validated Results (as of skill update)
+| Item | Value |
+|---|---|
+| Current Quarter | **Q3 FY26** |
+| Q3 FY26 Total Quota | 5,658,070.03 |
+| Q3 FY26 Total Forecast Call | 319,424.61 |
+| Historical Trend Factor (Q1+Q2 FY26 Actuals/Forecast) | 1.00 |
+| Adjusted Forecast | 319,424.61 |
+| **Gap to Quota (amount to bridge)** | **5,338,645.42** |
+| Forecast Attainment % | 5.65% |
